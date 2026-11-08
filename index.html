@@ -21,7 +21,9 @@
 <body>
 <h1>Safari Notify 🔔</h1>
 <div class="card"><div id="log">جاهز. اضغط الزر لتفعيل الإشعارات.</div></div>
+<div class="card"><div id="diag" style="font-size:13px;line-height:1.8;direction:ltr;white-space:pre-wrap">...</div></div>
 <button id="enable">تفعيل الإشعارات</button>
+<button id="local" style="background:#34c759">إشعار تجريبي محلي</button>
 <div class="card" id="tokenBox" hidden>
   <div>رمز الجهاز (Token):</div>
   <textarea id="token" readonly></textarea>
@@ -58,7 +60,7 @@ document.getElementById('enable').onclick = async () => {
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     document.getElementById('token').value = token;
     document.getElementById('tokenBox').hidden = false;
-    log("✅ تم التفعيل. انسخ الرمز وأرسله لي.");
+    log("✅ تم التفعيل. انسخ الرمز وأرسله لي."); diag();
     onMessage(messaging, (p) => {
       const n = p.notification || {};
       reg.showNotification(n.title || 'Safari Notify', { body: n.body || '' });
@@ -70,6 +72,31 @@ document.getElementById('copy').onclick = async () => {
   const t = document.getElementById('token');
   try { await navigator.clipboard.writeText(t.value); log("تم النسخ ✅"); }
   catch { t.select(); log("حدد النص وانسخه يدوياً."); }
+};
+
+async function diag(extra) {
+  const lines = [];
+  lines.push("standalone: " + (window.navigator.standalone === true));
+  lines.push("permission: " + (('Notification' in window) ? Notification.permission : "unsupported"));
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    lines.push("service worker: " + (reg ? (reg.active ? "active" : "registered, not active") : "none"));
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription();
+      lines.push("push subscription: " + (sub ? "yes" : "NO"));
+    }
+  } catch (e) { lines.push("sw error: " + e.message); }
+  if (extra) lines.push(extra);
+  document.getElementById('diag').textContent = lines.join("\n");
+}
+diag();
+document.getElementById('local').onclick = async () => {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) { diag("local test: no service worker"); return; }
+    await reg.showNotification("تجربة محلية", { body: "إذا وصلك هذا، الـ Service Worker شغال ✅" });
+    diag("local test: sent");
+  } catch (e) { diag("local test error: " + e.message); }
 };
 </script>
 </body>
