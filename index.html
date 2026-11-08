@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Notify">
+<link rel="manifest" href="manifest.json">
+<title>Safari Notify</title>
+<style>
+  :root{--bg:#fff;--fg:#111;--card:#f2f2f4;--ac:#0a84ff}
+  @media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#f5f5f5;--card:#1e1e20}}
+  body{margin:0;padding:env(safe-area-inset-top) 20px 40px;background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,sans-serif}
+  h1{margin:28px 0 6px}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin:14px 0}
+  button{width:100%;padding:14px;border:0;border-radius:12px;background:var(--ac);color:#fff;font-size:17px;margin-top:8px}
+  textarea{width:100%;box-sizing:border-box;height:110px;border-radius:10px;border:0;padding:8px;background:var(--bg);color:var(--fg);font-size:12px;direction:ltr}
+  #log{font-size:14px;line-height:1.7;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>Safari Notify 🔔</h1>
+<div class="card"><div id="log">جاهز. اضغط الزر لتفعيل الإشعارات.</div></div>
+<button id="enable">تفعيل الإشعارات</button>
+<div class="card" id="tokenBox" hidden>
+  <div>رمز الجهاز (Token):</div>
+  <textarea id="token" readonly></textarea>
+  <button id="copy">نسخ الرمز</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCV0LLu2AxrDCrOHf9V1wZlkRkrJ78crtQ",
+  authDomain: "x-mm-dd3bc.firebaseapp.com",
+  projectId: "x-mm-dd3bc",
+  storageBucket: "x-mm-dd3bc.firebasestorage.app",
+  messagingSenderId: "1031821409468",
+  appId: "1:1031821409468:web:4045a1cb03c577bb3b64b9"
+};
+const VAPID_KEY = "BAybVyMNErQ8FiN_wEd6rmF2CIr8mHhC9KOkO55_xm-Xo76NcZ98z-urPRQ4Id-rTC78-ras4dfZgj7PH9iD3lU";
+
+const log = (t) => document.getElementById('log').textContent = t;
+const app = initializeApp(firebaseConfig);
+
+document.getElementById('enable').onclick = async () => {
+  try {
+    const standalone = window.navigator.standalone === true;
+    if (!standalone) { log("افتح الصفحة من أيقونة الشاشة الرئيسية أولاً (Share ← Add to Home Screen)."); return; }
+    if (!('Notification' in window)) { log("الإشعارات غير مدعومة. تأكد من iOS 16.4 أو أحدث."); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { log("تم رفض الإذن. فعّله من الإعدادات ← الإشعارات."); return; }
+    const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+    const messaging = getMessaging(app);
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    document.getElementById('token').value = token;
+    document.getElementById('tokenBox').hidden = false;
+    log("✅ تم التفعيل. انسخ الرمز وأرسله لي.");
+    onMessage(messaging, (p) => {
+      const n = p.notification || {};
+      reg.showNotification(n.title || 'Safari Notify', { body: n.body || '' });
+    });
+  } catch (e) { log("خطأ: " + e.message); }
+};
+
+document.getElementById('copy').onclick = async () => {
+  const t = document.getElementById('token');
+  try { await navigator.clipboard.writeText(t.value); log("تم النسخ ✅"); }
+  catch { t.select(); log("حدد النص وانسخه يدوياً."); }
+};
+</script>
+</body>
+</html>
